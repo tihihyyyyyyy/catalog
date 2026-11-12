@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Каталог бібліотеки — Термінал</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 720px;
+      width: 100%;
+    }
+
+    h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input:focus { border-color: var(--primary); }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      color: white;
+      font-size: 0.95rem;
+    }
+
+    .btn-search { background: var(--primary); }
+    .btn-search:hover { background: var(--primary-hover); }
+    .btn-issue { background: var(--warning); color: #0f172a; }
+    .btn-issue:hover { opacity: 0.9; }
+    .btn-return { background: var(--success); color: #0f172a; }
+    .btn-return:hover { opacity: 0.9; }
+
+    .log {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .log.error { border-left-color: var(--danger); color: #fca5a5; }
+    .log.success { border-left-color: var(--success); color: #6ee7b7; }
+
+    .catalog-title { font-size: 1.1rem; margin-bottom: 1rem; }
+
+    .book-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .book-item:last-child { border-bottom: none; }
+    .book-id { font-family: monospace; background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 6px; color: var(--primary); margin-right: 0.5rem; }
+    .book-author { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+
+    .badge {
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge.free { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .badge.busy { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>📚 Каталог бібліотеки</h1>
+  <p class="subtitle">Інтерактивний термінал пошуку, видачі та повернення карток за ID</p>
+
+  <div class="panel">
+    <div class="controls">
+      <input type="text" id="bookIdInput" placeholder="Введіть ID (наприклад: BK-101)" />
+      <div class="actions">
+        <button class="btn-search" onclick="handleAction('search')">Пошук</button>
+        <button class="btn-issue" onclick="handleAction('issue')">Видати</button>
+        <button class="btn-return" onclick="handleAction('return')">Повернути</button>
+      </div>
+    </div>
+    <div id="statusLog" class="log">Введіть унікальний ідентифікатор картки та оберіть дію.</div>
+  </div>
+
+  <div class="panel">
+    <div class="catalog-title">Актуальний стан фонду:</div>
+    <div id="catalogList"></div>
+  </div>
+</div>
+
+<script>
+  const library = {
+    "BK-101": { title: "Кобзар", author: "Тарас Шевченко", year: 1840, available: true },
+    "BK-102": { title: "Лісова пісня", author: "Леся Українка", year: 1911, available: false },
+    "BK-103": { title: "Тіні забутих предків", author: "Михайло Коцюбинський", year: 1911, available: true },
+    "BK-104": { title: "Тигролови", author: "Іван Багряний", year: 1944, available: true }
+  };
+
+  function renderCatalog() {
+    const list = document.getElementById("catalogList");
+    list.innerHTML = "";
+
+    for (const [id, book] of Object.entries(library)) {
+      const badgeClass = book.available ? "free" : "busy";
+      const badgeText = book.available ? "Вільна" : "Видана";
+
+      list.innerHTML += `
+        <div class="book-item">
+          <div>
+            <div><span class="book-id">${id}</span><strong>«${book.title}»</strong></div>
+            <div class="book-author">${book.author} (${book.year} р.)</div>
+          </div>
+          <span class="badge ${badgeClass}">${badgeText}</span>
+        </div>
+      `;
+    }
+  }
+
+  function showMessage(text, type = "info") {
+    const log = document.getElementById("statusLog");
+    log.className = "log " + type;
+    log.innerHTML = text;
+  }
+
+  function handleAction(action) {
+    const rawId = document.getElementById("bookIdInput").value;
+    const cleanId = rawId.trim().toUpperCase();
+
+    if (!cleanId) {
+      showMessage("Помилка: поле ID порожнє. Введіть код картки.", "error");
+      return;
+    }
+
+    const book = library[cleanId];
+
+    if (!book) {
+      showMessage(`Помилка: картку з ID <strong>'${cleanId}'</strong> не знайдено у каталозі.`, "error");
+      return;
+    }
+
+    if (action === "search") {
+      const status = book.available ? "Доступна для видачі" : "На руках у читача";
+      showMessage(`Знайдено: <strong>«${book.title}»</strong> — ${book.author} (${status}).`, "info");
+    } 
+    else if (action === "issue") {
+      if (book.available) {
+        book.available = false;
+        renderCatalog();
+        showMessage(`Успішно: книгу <strong>«${book.title}»</strong> (${cleanId}) видано читачу.`, "success");
+      } else {
+        showMessage(`Відмова: книга <strong>«${book.title}»</strong> вже на руках у іншого читача.`, "error");
+      }
+    } 
+    else if (action === "return") {
+      if (!book.available) {
+        book.available = true;
+        renderCatalog();
+        showMessage(`Успішно: книгу <strong>«${book.title}»</strong> (${cleanId}) повернуто на полицю.`, "success");
+      } else {
+        showMessage(`Інфо: книга <strong>«${book.title}»</strong> і так знаходиться в бібліотеці.`, "info");
+      }
+    }
+  }
+
+  renderCatalog();
+</script>
+
+</body>
+</html>
